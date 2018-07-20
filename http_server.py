@@ -1,8 +1,11 @@
 import socket
 import sys
 import traceback
+import mimetypes
+from pathlib import Path
 
-def response_ok(body=b"This is a minimal response", mimetype=b"text/plain"):
+
+def response_ok(body=b"The request was successful", mimetype=b"text/plain"):
     """
     returns a basic HTTP response
     Ex:
@@ -20,20 +23,41 @@ def response_ok(body=b"This is a minimal response", mimetype=b"text/plain"):
     """
 
     # TODO: Implement response_ok
-    return b""
+    return b"\r\n".join([
+        b"HTTP/1.1 200 OK",
+        b"Content-Type: " + mimetype,
+        b"",
+        body,
+    ])
+
 
 def response_method_not_allowed():
     """Returns a 405 Method Not Allowed response"""
 
     # TODO: Implement response_method_not_allowed
-    return b""
+    return b"\r\n".join([
+        b"HTTP/1.1 405 Method Not Allowed ",
+        b"Content-Type: text/plain",
+        b"",
+        b"The server recognizes the method and path",
+        b"but this particular method does not make sense",
+        b"when run against this particular path"
+    ])
 
 
 def response_not_found():
     """Returns a 404 Not Found response"""
 
     # TODO: Implement response_not_found
-    return b""
+    return b"\r\n".join([
+        b"HTTP/1.1 404 NOT FOUND ",
+        b"Content-Type: text/plain",
+        b"",
+        b"The path does not name an existing resource",
+        b"This is probably the most famous or infamous exception",
+        b"code because users never see the 200 code displayed",
+        b"on their screen; they see a document instead",
+    ])
 
 
 def parse_request(request):
@@ -45,7 +69,14 @@ def parse_request(request):
     """
 
     # TODO: implement parse_request
-    return ""
+
+    method, path, version = request.split("\r\n")[0].split(" ")
+
+    if method != "GET":
+        raise NotImplementedError
+
+    return path
+
 
 def response_path(path):
     """
@@ -75,8 +106,21 @@ def response_path(path):
 
     """
 
+    directory = Path(__file__).parent / 'webroot/'
+    file_name = directory / path
+
     # TODO: Raise a NameError if the requested content is not present
     # under webroot.
+
+    for _ in directory.iterdir():
+        if file_name.exists():
+            #content = f'Found file: {file_name.name}'
+            with file_name.open('rb') as handle:
+                content = handle.read()
+                mime_type = mimetypes.guess_type(path)[0]
+            return content, mime_type
+        else:
+            raise NameError
 
     # TODO: Fill in the appropriate content and mime_type give the path.
     # See the assignment guidelines for help on "mapping mime-types", though
@@ -85,11 +129,6 @@ def response_path(path):
     # If the path is "make_time.py", then you may OPTIONALLY return the
     # result of executing `make_time.py`. But you need only return the
     # CONTENTS of `make_time.py`.
-    
-    content = b"not implemented"
-    mime_type = b"not implemented"
-
-    return content, mime_type
 
 
 def server(log_buffer=sys.stderr):
@@ -115,23 +154,35 @@ def server(log_buffer=sys.stderr):
                     if '\r\n\r\n' in request:
                         break
 		
-
                 print("Request received:\n{}\n\n".format(request))
 
                 # TODO: Use parse_request to retrieve the path from the request.
+                try:
+                    path = parse_request(request)
 
-                # TODO: Use response_path to retrieve the content and the mimetype,
-                # based on the request path.
+                    # TODO: Use response_path to retrieve the content and the mimetype,
+                    # based on the request path.
+                    try:
+                        content, mimetype = response_path(path)
 
-                # TODO; If parse_request raised a NotImplementedError, then let
-                # response be a method_not_allowed response. If response_path raised
-                # a NameError, then let response be a not_found response. Else,
-                # use the content and mimetype from response_path to build a 
-                # response_ok.
-                response = response_ok(
-                    body=b"Welcome to my web server",
-                    mimetype=b"text/plain"
-                )
+                        response = response_ok(
+                            body=content,
+                            mimetype=mimetype
+                        )
+                    except TypeError:
+                        response = response_not_found()
+
+                    # TODO; If parse_request raised a NotImplementedError, then let
+                    # response be a method_not_allowed response. If response_path raised
+                    # a NameError, then let response be a not_found response. Else,
+                    # use the content and mimetype from response_path to build a
+                    # response_ok.
+                    # response = response_ok(
+                    #     body=b"Welcome to my web server",
+                    #     mimetype=b"text/plain"
+                    # )
+                except NotImplementedError:
+                    response = response_method_not_allowed()
 
                 conn.sendall(response)
             except:
