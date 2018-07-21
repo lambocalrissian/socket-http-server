@@ -106,21 +106,40 @@ def response_path(path):
 
     """
 
-    directory = Path(__file__).parent / 'webroot/'
-    file_name = directory / path
+    # directory = Path(__file__).parent / 'webroot'
+    # file_name = directory / path
 
     # TODO: Raise a NameError if the requested content is not present
     # under webroot.
+    #
+    # if file_name.is_dir():
+    #     content = '\r\n'.join(file_name.iterdir()).encode()
+    #     mime_type = b'text/plain'
+    #
+    # elif file_name.is_file() and file_name.exists():
+    #     with file_name.open('rb') as handle:
+    #         content = handle.read()
+    #     mime_type = mimetypes.guess_type(path)[0]
+    # else:
+    #     raise NameError
+    #
+    # return content, mime_type
+    local_path = os.path.join('webroot', *path.split('/'))
 
-    for _ in directory.iterdir():
-        if file_name.exists():
-            #content = f'Found file: {file_name.name}'
-            with file_name.open('rb') as handle:
-                content = handle.read()
-                mime_type = mimetypes.guess_type(path)[0]
-            return content, mime_type
-        else:
-            raise NameError
+    if os.path.isdir(local_path):
+        content = '\r\n'.join(os.listdir(local_path)).encode()
+        mime_type = 'text/plain'.encode()
+
+    elif os.path.isfile(local_path):
+        with open(local_path, 'rb') as f:
+            content = f.read()
+        mime_type = mimetypes.guess_type(local_path)[0].encode()
+
+    else:
+        raise NameError
+
+    return content, mime_type
+
 
     # TODO: Fill in the appropriate content and mime_type give the path.
     # See the assignment guidelines for help on "mapping mime-types", though
@@ -164,12 +183,12 @@ def server(log_buffer=sys.stderr):
                     # based on the request path.
                     try:
                         content, mimetype = response_path(path)
-
                         response = response_ok(
                             body=content,
                             mimetype=mimetype
                         )
-                    except TypeError:
+
+                    except NameError:
                         response = response_not_found()
 
                     # TODO; If parse_request raised a NotImplementedError, then let
